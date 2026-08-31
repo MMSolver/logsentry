@@ -17,4 +17,8 @@ dependencies = [
 logsentry = "logsentry.cli:main"
 
 [tool.setuptools.packages.find]
-include = ["logsentry*"]
+# `examples*` is included alongside `logsentry*` so that the installed
+# `logsentry` console script (cli.py's `generate-sample` subcommand) can
+# `import examples.generate_sample_log` regardless of the caller's working
+# directory -- see logsentry/cli.py's module docstring for why.
+include = ["logsentry*", "examples*"]
