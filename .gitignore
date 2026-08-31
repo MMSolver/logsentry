@@ -1,0 +1,34 @@
+# Byte-compiled / cache
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Distribution / packaging
+build/
+dist/
+*.egg-info/
+.eggs/
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Test / type-check caches
+.pytest_cache/
+.mypy_cache/
+.coverage
+htmlcov/
+
+# IDE
+.vscode/
+.idea/
+
+# Generated demo/report artifacts (not committed fixtures)
+demo.log
+*.report.json
+*.report.csv
+*.report.html
+
+# Committed test fixture — do NOT ignore
+!tests/sample_logs/auth.log
