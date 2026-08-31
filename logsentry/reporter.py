@@ -122,13 +122,19 @@ def render_cli(
     console.print(Panel(summary_lines, title="LogSentry Summary", expand=False))
 
     table = Table(show_header=True, header_style="bold")
-    table.add_column("Severity")
-    table.add_column("IP")
-    table.add_column("Type")
-    table.add_column("Failed", justify="right")
-    table.add_column("Users", justify="right")
-    table.add_column("First Seen")
-    table.add_column("Last Seen")
+    # overflow="fold" wraps a too-long cell onto additional lines using only
+    # plain characters, instead of rich's default ellipsis ("…", U+2026)
+    # truncation -- on a narrow terminal whose console encoding can't
+    # represent U+2026 (e.g. cp1254), the ellipsis truncation produces a
+    # mojibake replacement character. Folding degrades gracefully in any
+    # console encoding and never emits a special glyph.
+    table.add_column("Severity", overflow="fold", no_wrap=False)
+    table.add_column("IP", overflow="fold", no_wrap=False)
+    table.add_column("Type", overflow="fold", no_wrap=False)
+    table.add_column("Failed", justify="right", overflow="fold", no_wrap=False)
+    table.add_column("Users", justify="right", overflow="fold", no_wrap=False)
+    table.add_column("First Seen", overflow="fold", no_wrap=False)
+    table.add_column("Last Seen", overflow="fold", no_wrap=False)
 
     for alert in _sorted_alerts(alerts):
         style = _SEVERITY_STYLE.get(alert.severity, "white")
