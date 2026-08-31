@@ -44,13 +44,14 @@ def _parse_timestamp(line: str) -> Optional[datetime]:
     if match is None:
         return None
 
-    normalized = f"{match.group('mon')} {int(match.group('day')):02d} {match.group('time')}"
+    normalized = (
+        f"{match.group('mon')} {int(match.group('day')):02d} "
+        f"{datetime.now().year} {match.group('time')}"
+    )
     try:
-        parsed = datetime.strptime(normalized, "%b %d %H:%M:%S")
+        return datetime.strptime(normalized, "%b %d %Y %H:%M:%S")
     except ValueError:
         return None
-
-    return parsed.replace(year=datetime.now().year)
 
 
 def parse_line(line: str) -> Optional[LogEvent]:

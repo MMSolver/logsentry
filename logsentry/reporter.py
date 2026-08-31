@@ -21,7 +21,7 @@ import csv
 import html
 import json
 from datetime import datetime
-from typing import List, Optional
+from typing import List, Optional, Tuple
 
 from rich.console import Console
 from rich.panel import Panel
@@ -70,6 +70,18 @@ def _sorted_alerts(alerts: List[Alert]) -> List[Alert]:
     return sorted(alerts, key=_severity_sort_key)
 
 
+def _summary_counts(events: List[LogEvent]) -> Tuple[int, int, int]:
+    """Return (unique_ip_count, failed_total, accepted_total) for `events`.
+
+    Shared by `render_cli`, `render_json`, and `render_html` so the summary
+    statistics are computed in exactly one place.
+    """
+    unique_ips = {event.ip for event in events}
+    failed_total = sum(1 for event in events if event.event_type == "failed")
+    accepted_total = sum(1 for event in events if event.event_type == "accepted")
+    return len(unique_ips), failed_total, accepted_total
+
+
 def _neutralize_csv_formula(value: str) -> str:
     """Prefix `value` with a single quote if it starts with a character a
     spreadsheet application (Excel/Sheets) would interpret as a formula
@@ -98,13 +110,11 @@ def render_cli(
     if console is None:
         console = Console()
 
-    unique_ips = {event.ip for event in events}
-    failed_total = sum(1 for event in events if event.event_type == "failed")
-    accepted_total = sum(1 for event in events if event.event_type == "accepted")
+    unique_ip_count, failed_total, accepted_total = _summary_counts(events)
 
     summary_lines = (
         f"Total events: {len(events)}\n"
-        f"Unique IPs: {len(unique_ips)}\n"
+        f"Unique IPs: {unique_ip_count}\n"
         f"Total failed attempts: {failed_total}\n"
         f"Successful logins: {accepted_total}\n"
         f"Alerts raised: {len(alerts)}"
@@ -141,14 +151,12 @@ def render_json(events: List[LogEvent], alerts: List[Alert], output_path: str) -
     Includes a summary block plus the full alert list (all `Alert` fields),
     with every `datetime` serialized via `.isoformat()`.
     """
-    unique_ips = {event.ip for event in events}
-    failed_total = sum(1 for event in events if event.event_type == "failed")
-    accepted_total = sum(1 for event in events if event.event_type == "accepted")
+    unique_ip_count, failed_total, accepted_total = _summary_counts(events)
 
     report = {
         "summary": {
             "total_events": len(events),
-            "unique_ips": len(unique_ips),
+            "unique_ips": unique_ip_count,
             "total_failed_attempts": failed_total,
             "successful_logins": accepted_total,
             "alert_count": len(alerts),
@@ -217,9 +225,7 @@ def render_html(events: List[LogEvent], alerts: List[Alert], output_path: str) -
     content (e.g. a username containing `<script>`) must never reach the
     page unescaped.
     """
-    unique_ips = {event.ip for event in events}
-    failed_total = sum(1 for event in events if event.event_type == "failed")
-    accepted_total = sum(1 for event in events if event.event_type == "accepted")
+    unique_ip_count, failed_total, accepted_total = _summary_counts(events)
 
     row_html_parts: List[str] = []
     for alert in _sorted_alerts(alerts):
@@ -302,7 +308,7 @@ def render_html(events: List[LogEvent], alerts: List[Alert], output_path: str) -
 """.format(
         generated_at=_html_escape(generated_at),
         total_events=len(events),
-        unique_ips=len(unique_ips),
+        unique_ips=unique_ip_count,
         failed_total=failed_total,
         accepted_total=accepted_total,
         alert_count=len(alerts),

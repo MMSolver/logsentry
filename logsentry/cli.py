@@ -76,7 +76,10 @@ def _run_analyze(args: argparse.Namespace, parser: argparse.ArgumentParser) -> N
     threshold = args.threshold if args.threshold is not None else config.DEFAULT_THRESHOLD
     window = args.window if args.window is not None else config.DEFAULT_WINDOW
 
-    events = list(parse_file(args.path))
+    try:
+        events = list(parse_file(args.path))
+    except OSError as exc:
+        parser.error(f"cannot read {args.path}: {exc.strerror or exc}")
     alerts = detect(events, threshold=threshold, window=window)
     alerts = _filter_by_min_severity(alerts, args.min_severity)
 
