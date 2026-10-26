@@ -2,11 +2,14 @@
 
 **A defensive CLI that parses SSH/auth logs and automatically flags brute-force attacks, credential-stuffing sweeps, and successful breaches.**
 
+[![CI](https://github.com/MMSolver/logsentry/actions/workflows/ci.yml/badge.svg)](https://github.com/MMSolver/logsentry/actions/workflows/ci.yml)
 ![Python](https://img.shields.io/badge/python-3.8%2B-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
-![Tests](https://img.shields.io/badge/tests-passing-brightgreen)
+![MITRE ATT&CK](https://img.shields.io/badge/MITRE%20ATT%26CK-T1110%20%7C%20T1078-red)
 
 LogSentry reads `sshd` log lines (the kind found in `/var/log/auth.log`), groups failed login attempts per IP address with a sliding time window, and raises severity-scored alerts — rendered as a colored terminal report or exported to JSON, CSV, or HTML.
+
+![LogSentry HTML report](docs/images/html-report.png)
 
 ---
 
@@ -26,7 +29,7 @@ LogSentry reads `sshd` log lines (the kind found in `/var/log/auth.log`), groups
 Requires Python 3.8+.
 
 ```bash
-git clone <this-repo-url>
+git clone https://github.com/MMSolver/logsentry.git
 cd logsentry
 pip install -r requirements.txt
 ```
@@ -115,6 +118,36 @@ In the terminal, rows are additionally color-coded by severity (red for `CRITICA
 5. **Severity scoring** — everything else is scored from the failed-attempt count and username diversity: `HIGH` at 50+ failed attempts or 15+ distinct usernames, `MEDIUM` at 15–49 failed attempts, `LOW` from the detection threshold up to 14. All of these boundaries live in `config.py`, not scattered through the detection logic.
 6. **Reporting** (`reporter.py`) — alerts are sorted CRITICAL → LOW and rendered as a `rich` terminal table, or exported to JSON/CSV/HTML (HTML output HTML-escapes every log-derived string, since log content is attacker-influenced input).
 
+## MITRE ATT&CK coverage
+
+Each alert type maps to the adversary behavior it is designed to surface:
+
+| Alert type | Technique | What LogSentry looks for |
+|---|---|---|
+| `brute_force` | [T1110.001 — Password Guessing](https://attack.mitre.org/techniques/T1110/001/) | `threshold`+ failed logins from one IP inside a sliding `window` |
+| `user_enumeration` | [T1110.003 — Password Spraying](https://attack.mitre.org/techniques/T1110/003/) / [T1110.004 — Credential Stuffing](https://attack.mitre.org/techniques/T1110/004/) | One IP cycling through many distinct usernames inside the same window |
+| `successful_breach` | [T1078 — Valid Accounts](https://attack.mitre.org/techniques/T1078/) (following [T1110](https://attack.mitre.org/techniques/T1110/)) | Failed attempts from an IP chronologically followed by an accepted login |
+
+## Known limitations
+
+Knowing what a detector *cannot* see matters as much as what it can. Current blind spots:
+
+- **Per-IP correlation only.** A distributed attack that spreads attempts across many source IPs, staying under the threshold on each, will not trigger an alert.
+- **Low-and-slow attacks.** Attempts spaced wider than `--window` are never counted together; tuning `--window` up trades sensitivity for noise.
+- **Classic syslog timestamps only** (`Nov 12 08:23:45`). Logs using RFC 3339 / ISO-8601 timestamps (the default on some newer distributions) are not parsed yet.
+- **Year backfill.** Syslog omits the year, so the current year is assumed — a log spanning New Year's Eve, or analyzed in a later year, will carry the wrong year.
+- **IPv4 only.** IPv6 source addresses are skipped.
+- **`sshd` only.** Other auth sources (sudo, PAM, web logins) are out of scope for now.
+
+## Development process
+
+LogSentry was built test-first and reviewed like production code, using an AI-assisted workflow with **Claude Code**:
+
+- **TDD** — every parser and detector feature landed as a failing test commit (red) followed by the implementation (green); see the git history. The suite has 29 tests and runs in CI on Python 3.9, 3.11 and 3.13.
+- **Security audit** of the parser and detector, including ReDoS testing of every regex against adversarial lines of up to 1M characters — [`docs/superpowers/plans/task-8-security-audit.md`](docs/superpowers/plans/task-8-security-audit.md).
+- **Whole-codebase code review**, with the findings fixed in follow-up commits — [`docs/superpowers/plans/task-13-code-review.md`](docs/superpowers/plans/task-13-code-review.md).
+- **Attacker-controlled input is treated as hostile** — log content is HTML-escaped in reports to prevent stored XSS when a report is opened in a browser.
+
 ## Disclaimer
 
 LogSentry is a **defensive** tool for analyzing authentication logs. Use it only on **your own systems or systems you are explicitly authorized to monitor**. It never connects to, scans, or interacts with any remote host — it only reads log files you give it.
@@ -132,3 +165,10 @@ Stretch ideas, not yet implemented:
 - Fail2ban-style export of an IP block list built from alerts.
 - Support for other log sources (nginx access logs, Windows Event Log).
 - YAML configuration file support as an alternative to CLI flags.
+- RFC 3339 / ISO-8601 timestamp and IPv6 support (see [Known limitations](#known-limitations)).
+- Cross-IP correlation to catch distributed brute-force campaigns.
+
+## Author
+
+**Mehmet Mutioğlu** — offensive & defensive security, AI-assisted full-stack development
+[LinkedIn](https://www.linkedin.com/in/mehmetmutioglu/) · [GitHub](https://github.com/MMSolver) · [mution.com.tr](https://mution.com.tr)
